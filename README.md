@@ -1,25 +1,21 @@
-```mermaid
-graph TD
-    subgraph "Client-Side"
-        A[API Client Simulation] -- "1. User triggers API call" --> B(Monitoring Middleware);
-    end
+flowchart TD
+    A[User Clicks API Button] --> B[Fake API Server Handles Request]
+    B --> C[Simulated Latency & Status Generated]
+    C --> D[Monitoring Middleware Captures Data]
+    D --> E[Store Log in MetricsStore]
+    E --> F[Update UI Components]
+    
+    F --> F1[Real-time Logs (with color coding)]
+    F --> F2[Metrics Panel (Req count, latency, error rate)]
+    F --> F3[Requests/Latency Charts via Chart.js]
 
-    subgraph "Backend (Simulated)"
-        B -- "2. Starts timer & calls server" --> C{Fake API Server};
-        C -- "3. Returns response (200/503)" --> B;
-        B -- "4. Stops timer, calculates latency" --> D[Log Entry Created];
-        D -- "5. Store metrics" --> E[(Simulated Redis Store)];
-    end
+    E --> G[Trigger AI Analyzer]
+    G --> H[Analyze Trends in Latency & Errors]
+    H --> I[Generate Insights if thresholds breached]
+    I --> J[Display Insight in UI Panel]
 
-    subgraph "Dashboard & Analysis"
-        D -- "6. Push update via simulated WebSocket" --> F[Observability Dashboard];
-        F --> G[Update KPIs & Live Log];
-        F --> H[Update Charts];
-        E -- "7. AI Engine pulls data periodically" --> I(💡 AI Analyzer);
-        I -- "8. Anomaly detected?" --> J{Generate Insight / Alert};
-        J -- "9. Display on dashboard" --> F;
+    subgraph Auto-Traffic
+        AT1[User Clicks Auto Traffic Button]
+        AT1 --> AT2[Simulate Repeated API Requests]
+        AT2 --> A
     end
-
-    style A fill:#222,stroke:#c026d3,stroke-width:2px
-    style F fill:#222,stroke:#c026d3,stroke-width:2px
-    style I fill:#222,stroke:#f59e0b,stroke-width:2px
