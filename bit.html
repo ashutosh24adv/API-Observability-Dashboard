@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI-Powered API Usage Monitor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .font-mono {
+            font-family: 'Roboto Mono', monospace;
+        }
+        .log-entry {
+            transition: background-color 0.5s ease;
+        }
+        .log-entry:hover {
+            background-color: #374151; /* gray-700 */
+        }
+        .chart-container {
+            height: 250px;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-300">
+
+    <div class="flex flex-col lg:flex-row h-screen">
+        <!-- Left Panel: API Client Simulation -->
+        <div class="w-full lg:w-1/4 bg-gray-800 p-6 border-r border-gray-700 overflow-y-auto">
+            <h2 class="text-2xl font-bold text-cyan-400 mb-4">API Client</h2>
+            <p class="text-sm text-gray-400 mb-6">Simulate requests to your API endpoints.</p>
+            <div class="space-y-4">
+                <div>
+                    <h3 class="font-semibold text-lg mb-2">User Service</h3>
+                    <button data-endpoint="/api/users" data-method="GET" class="api-btn w-full text-left p-3 bg-blue-500/20 hover:bg-blue-500/40 rounded-md border border-blue-500/50">
+                        <span class="font-bold text-blue-300">GET</span> <span class="font-mono">/api/users</span>
+                    </button>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-lg mb-2">Order Service</h3>
+                    <button data-endpoint="/api/orders" data-method="POST" class="api-btn w-full text-left p-3 bg-green-500/20 hover:bg-green-500/40 rounded-md border border-green-500/50">
+                        <span class="font-bold text-green-300">POST</span> <span class="font-mono">/api/orders</span>
+                    </button>
+                    <button data-endpoint="/api/orders/123" data-method="GET" class="api-btn w-full text-left p-3 mt-2 bg-blue-500/20 hover:bg-blue-500/40 rounded-md border border-blue-500/50">
+                        <span class="font-bold text-blue-300">GET</span> <span class="font-mono">/api/orders/123</span>
+                    </button>
+                </div>
+                 <div>
+                    <h3 class="font-semibold text-lg mb-2">Payment Service (Slow & Error-prone)</h3>
+                    <button data-endpoint="/api/payment/process" data-method="POST" class="api-btn w-full text-left p-3 bg-red-500/20 hover:bg-red-500/40 rounded-md border border-red-500/50">
+                        <span class="font-bold text-red-300">POST</span> <span class="font-mono">/api/payment/process</span>
+                    </button>
+                </div>
+            </div>
+             <div class="mt-8">
+                <h3 class="font-semibold text-lg mb-2">Automated Traffic</h3>
+                <button id="autoTrafficBtn" class="w-full p-3 bg-purple-500/20 hover:bg-purple-500/40 rounded-md border border-purple-500/50">
+                    Start Auto-Traffic
+                </button>
+            </div>
+        </div>
+
+        <!-- Right Panel: Observability Dashboard (Grafana Simulation) -->
+        <div class="w-full lg:w-3/4 p-6 overflow-y-auto">
+            <h1 class="text-3xl font-bold text-white mb-6">Observability Dashboard</h1>
+
+            <!-- Key Metrics -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="bg-gray-800 p-4 rounded-lg"><p class="text-sm text-gray-400">Total Requests</p><p id="totalRequests" class="text-3xl font-bold">0</p></div>
+                <div class="bg-gray-800 p-4 rounded-lg"><p class="text-sm text-gray-400">Avg Latency</p><p id="avgLatency" class="text-3xl font-bold">0 ms</p></div>
+                <div class="bg-gray-800 p-4 rounded-lg"><p class="text-sm text-gray-400">Error Rate</p><p id="errorRate" class="text-3xl font-bold">0.00%</p></div>
+            </div>
+
+            <!-- Charts -->
+            <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
+                <div class="bg-gray-800 p-4 rounded-lg chart-container"><canvas id="requestsChart"></canvas></div>
+                <div class="bg-gray-800 p-4 rounded-lg chart-container"><canvas id="latencyChart"></canvas></div>
+            </div>
+
+            <!-- AI Insights & Live Log -->
+            <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                <!-- AI Insights -->
+                <div class="bg-gray-800 p-4 rounded-lg">
+                    <h3 class="text-xl font-semibold text-cyan-400 mb-3">💡 AI-Powered Insights & Alerts</h3>
+                    <div id="insights-container" class="space-y-3 h-64 overflow-y-auto">
+                        <p class="text-gray-500">No insights generated yet. Start sending traffic.</p>
+                    </div>
+                </div>
+                <!-- Live Log Stream -->
+                <div class="bg-gray-800 p-4 rounded-lg">
+                     <h3 class="text-xl font-semibold mb-3">Real-time Log Stream</h3>
+                     <div id="log-container" class="font-mono text-sm space-y-1 h-64 overflow-y-auto">
+                        <p class="text-gray-500">Awaiting requests...</p>
+                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- DOM ELEMENT REFERENCES ---
+        const apiButtons = document.querySelectorAll('.api-btn');
+        const autoTrafficBtn = document.getElementById('autoTrafficBtn');
+        const totalRequestsEl = document.getElementById('totalRequests');
+        const avgLatencyEl = document.getElementById('avgLatency');
+        const errorRateEl = document.getElementById('errorRate');
+        const logContainer = document.getElementById('log-container');
+        const insightsContainer = document.getElementById('insights-container');
+
+        // --- SIMULATED BACKEND & MIDDLEWARE ---
+
+        /**
+         * This simulates a fast, in-memory data store like Redis.
+         * We store all raw request data here for analysis.
+         */
+        const metricsStore = {
+            requests: [], // Stores { timestamp, endpoint, method, status, latency }
+        };
+
+        /**
+         * This simulates a real API server. It introduces random latency and errors
+         * to make the monitoring more realistic.
+         */
+        const fakeApiServer = {
+            handleRequest: (endpoint) => {
+                let latency = 50 + Math.random() * 200; // Base latency
+                let status = 200;
+
+                // Make the payment endpoint intentionally slow and error-prone
+                if (endpoint.includes('payment')) {
+                    latency += 200 + Math.random() * 500;
+                    if (Math.random() < 0.25) { // 25% chance of failure
+                        status = 503; // Service Unavailable
+                    }
+                }
+                
+                return new Promise(resolve => {
+                    setTimeout(() => {
+                        resolve({ status });
+                    }, latency);
+                });
+            }
+        };
+
+        /**
+         * This is our core monitoring middleware. In a real Node.js app, this would
+         * be an Express middleware function. It wraps the API call to capture metrics.
+         */
+        async function monitoringMiddleware(endpoint, method) {
+            const startTime = performance.now();
+            const response = await fakeApiServer.handleRequest(endpoint);
+            const endTime = performance.now();
+            const latency = Math.round(endTime - startTime);
+
+            const logEntry = {
+                timestamp: Date.now(),
+                endpoint,
+                method,
+                status: response.status,
+                latency
+            };
+
+            // 1. Store the log in our "Redis" store
+            metricsStore.requests.push(logEntry);
+            if (metricsStore.requests.length > 1000) {
+                metricsStore.requests.shift(); // Keep the store from growing indefinitely
+            }
+
+            // 2. Push updates to the dashboard (simulating WebSockets)
+            updateDashboard(logEntry);
+        }
+        
+        // --- AI-POWERED ANALYSIS ENGINE ---
+
+        /**
+         * A rule-based AI to analyze metrics and generate insights.
+         * In a real system, this could be a more complex model, but this
+         * demonstrates the core principle of automated analysis.
+         */
+        const aiAnalyzer = {
+            lastCheck: 0,
+            insights: new Set(),
+            analyze: (requests) => {
+                if (Date.now() - aiAnalyzer.lastCheck < 5000) return; // Analyze every 5s
+                aiAnalyzer.lastCheck = Date.now();
+
+                const recentRequests = requests.slice(-50); // Analyze last 50 requests
+                if (recentRequests.length < 10) return;
+
+                // Insight 1: High Latency Detection
+                const paymentRequests = recentRequests.filter(r => r.endpoint.includes('payment'));
+                if (paymentRequests.length > 5) {
+                    const avgPaymentLatency = paymentRequests.reduce((sum, r) => sum + r.latency, 0) / paymentRequests.length;
+                    if (avgPaymentLatency > 400) {
+                        const insight = "High latency detected on POST /api/payment/process. Average is >400ms. Consider investigating database queries or third-party payment gateway response times.";
+                        if (!aiAnalyzer.insights.has(insight)) {
+                            aiAnalyzer.insights.add(insight);
+                            displayInsight(insight, 'warning');
+                        }
+                    }
+                }
+                
+                // Insight 2: High Error Rate Detection
+                const errorCount = recentRequests.filter(r => r.status >= 500).length;
+                const errorRate = errorCount / recentRequests.length;
+                if (errorRate > 0.2) { // > 20% error rate
+                     const insight = "Critical error rate (>20%) detected across all endpoints. This may indicate a systemic failure, such as a database connection loss or a deployment issue.";
+                     if (!aiAnalyzer.insights.has(insight)) {
+                        aiAnalyzer.insights.add(insight);
+                        displayInsight(insight, 'critical');
+                    }
+                }
+            }
+        };
+
+
+        // --- DASHBOARD UI UPDATE LOGIC ---
+
+        function updateDashboard(newLogEntry) {
+            // Update live log
+            if (logContainer.children.length > 50) logContainer.lastChild.remove();
+            if (logContainer.querySelector('.text-gray-500')) logContainer.innerHTML = '';
+            
+            const logEl = document.createElement('div');
+            logEl.className = 'log-entry flex justify-between items-center p-1 rounded';
+            const statusColor = newLogEntry.status >= 500 ? 'text-red-400' : (newLogEntry.status >= 400 ? 'text-yellow-400' : 'text-green-400');
+            logEl.innerHTML = `
+                <span>
+                    <span class="${statusColor} font-bold">${newLogEntry.status}</span>
+                    <span class="text-gray-400 ml-2">${newLogEntry.method}</span>
+                    <span class="ml-2">${newLogEntry.endpoint}</span>
+                </span>
+                <span class="font-semibold">${newLogEntry.latency}ms</span>
+            `;
+            logContainer.prepend(logEl);
+
+            // Update KPIs
+            const totalRequests = metricsStore.requests.length;
+            const totalLatency = metricsStore.requests.reduce((sum, r) => sum + r.latency, 0);
+            const avgLatency = totalRequests > 0 ? Math.round(totalLatency / totalRequests) : 0;
+            const totalErrors = metricsStore.requests.filter(r => r.status >= 400).length;
+            const errorRate = totalRequests > 0 ? (totalErrors / totalRequests * 100).toFixed(2) : 0;
+
+            totalRequestsEl.textContent = totalRequests;
+            avgLatencyEl.textContent = `${avgLatency} ms`;
+            errorRateEl.textContent = `${errorRate}%`;
+
+            // Trigger AI analysis
+            aiAnalyzer.analyze(metricsStore.requests);
+        }
+
+        function displayInsight(text, level) {
+            if (insightsContainer.querySelector('.text-gray-500')) insightsContainer.innerHTML = '';
+            const insightEl = document.createElement('div');
+            const colors = {
+                info: 'border-cyan-500/50 bg-cyan-500/10',
+                warning: 'border-yellow-500/50 bg-yellow-500/10',
+                critical: 'border-red-500/50 bg-red-500/10'
+            };
+            insightEl.className = `p-3 rounded-md border text-sm ${colors[level]}`;
+            insightEl.textContent = text;
+            insightsContainer.prepend(insightEl);
+        }
+
+        // --- CHARTING LOGIC ---
+        const createChart = (ctx, type, options) => new Chart(ctx, { type, data: { labels: [], datasets: [] }, options });
+
+        const requestsCtx = document.getElementById('requestsChart').getContext('2d');
+        const requestsChart = createChart(requestsCtx, 'line', { responsive: true, maintainAspectRatio: false, plugins: { title: { display: true, text: 'Requests per Second', color: '#d1d5db' } }, scales: { y: { beginAtZero: true, ticks: { color: '#9ca3af' } }, x: { ticks: { color: '#9ca3af' } } } });
+
+        const latencyCtx = document.getElementById('latencyChart').getContext('2d');
+        const latencyChart = createChart(latencyCtx, 'bar', { responsive: true, maintainAspectRatio: false, plugins: { title: { display: true, text: 'Latency Distribution (ms)', color: '#d1d5db' } }, scales: { y: { beginAtZero: true, ticks: { color: '#9ca3af' } }, x: { ticks: { color: '#9ca3af' } } } });
+
+        function updateCharts() {
+            const now = Date.now();
+            const lastMinuteRequests = metricsStore.requests.filter(r => now - r.timestamp < 60000);
+
+            // Update RPS Chart
+            const rpsData = {};
+            for (let i = 0; i < 10; i++) { rpsData[Math.floor((now - i * 6000) / 1000)] = 0; } // Bins for last 60s
+            lastMinuteRequests.forEach(r => {
+                const bin = Math.floor(r.timestamp / 6000) * 6; // Group by 6s intervals
+                rpsData[bin] = (rpsData[bin] || 0) + 1;
+            });
+            const sortedRpsKeys = Object.keys(rpsData).sort();
+            requestsChart.data.labels = sortedRpsKeys.map(k => new Date(k * 1000).toLocaleTimeString());
+            requestsChart.data.datasets = [{
+                label: 'RPS',
+                data: sortedRpsKeys.map(k => rpsData[k]),
+                borderColor: '#22d3ee',
+                tension: 0.3,
+                fill: true,
+                backgroundColor: 'rgba(34, 211, 238, 0.2)'
+            }];
+            requestsChart.update();
+
+            // Update Latency Chart
+            const latencyBins = { '<100ms': 0, '100-300ms': 0, '300-600ms': 0, '>600ms': 0 };
+            lastMinuteRequests.forEach(r => {
+                if (r.latency < 100) latencyBins['<100ms']++;
+                else if (r.latency < 300) latencyBins['100-300ms']++;
+                else if (r.latency < 600) latencyBins['300-600ms']++;
+                else latencyBins['>600ms']++;
+            });
+            latencyChart.data.labels = Object.keys(latencyBins);
+            latencyChart.data.datasets = [{
+                label: 'Request Count',
+                data: Object.values(latencyBins),
+                backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#b91c1c'],
+            }];
+            latencyChart.update();
+        }
+
+        // --- EVENT LISTENERS & INITIALIZATION ---
+        apiButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                monitoringMiddleware(btn.dataset.endpoint, btn.dataset.method);
+            });
+        });
+
+        let autoTrafficInterval = null;
+        autoTrafficBtn.addEventListener('click', () => {
+            if (autoTrafficInterval) {
+                clearInterval(autoTrafficInterval);
+                autoTrafficInterval = null;
+                autoTrafficBtn.textContent = 'Start Auto-Traffic';
+                autoTrafficBtn.classList.remove('bg-red-500/40');
+            } else {
+                autoTrafficInterval = setInterval(() => {
+                    const randomBtn = apiButtons[Math.floor(Math.random() * apiButtons.length)];
+                    randomBtn.click();
+                }, 500);
+                autoTrafficBtn.textContent = 'Stop Auto-Traffic';
+                autoTrafficBtn.classList.add('bg-red-500/40');
+            }
+        });
+
+        setInterval(updateCharts, 2000); // Update charts every 2 seconds
+    </script>
+</body>
+</html>
